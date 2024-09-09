@@ -9,9 +9,11 @@ from core.models import (
     CommentFileProduction,
     Task,
     NotificationTask,
-    Department
+    Department,
+    User
 )
 from department.serializers import DepartmentSerializer
+from user.serializers import UserNestedSerializer
 from fileproduction import serializers
 from rest_framework import status
 from rest_framework import (
@@ -28,7 +30,7 @@ from .file_utils import (
     project_progress,
     get_file_project_data,
     tasks_dep_admin,
-    files_dep_auth,
+    tasks_dep_auth,
     search_files,
     notification_ws,
     update_task_project_ws,
@@ -60,7 +62,7 @@ class FileProductionAdminViewSet(mixins.DestroyModelMixin,
         super().destroy(request, *args, **kwargs)
         if file_data['tasks']:
             project_progress(file_data['project'])
-        update_task_project_ws(file, 'file_delete')
+        update_task_project_ws(file_data, 'file_delete')
         update_task_department_ws(file_data, 'file_delete')
         return Response({'FileProduction has been deleted'})
 
@@ -122,7 +124,11 @@ class FileAuthViewSet(viewsets.GenericViewSet):
         """
         params = self.request.query_params
         user_id = request.user.id
-        data = files_dep_auth(params, user_id)
+        user_query = User.objects.get(id=user_id)
+        user_serializer = UserNestedSerializer(user_query, many=False)
+        user_data = user_serializer.data
+        data = tasks_dep_auth(params, user_data)
+
         return Response(data)
 
     @action(methods=['GET'], detail=False, url_path='department/search')
@@ -200,7 +206,6 @@ class TaskViewSet(mixins.CreateModelMixin,
         task_in_destroy(tasks, task_index, task_obj)
         response = super().destroy(request, *args, **kwargs)
         if response.status_code == 204:
-            update_task_project_ws(task_obj.file.id, 'task')
             project_progress(file['project'])
             return response
         return super().destroy(request, *args, **kwargs)

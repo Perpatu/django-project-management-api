@@ -39,7 +39,7 @@ class UserBoardSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the user object"""
-    task = serializers.StringRelatedField(source='tasks', many=True)
+    task = serializers.StringRelatedField(source='tasks', many=True, required=False)
 
     class Meta:
         model = get_user_model()
@@ -114,7 +114,7 @@ class UserNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'username', 'first_name', 'last_name']
+        fields = ['id', 'username', 'first_name', 'last_name', 'departments']
 
 
 class UserWebsocketSerializer(serializers.ModelSerializer):

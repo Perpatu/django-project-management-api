@@ -266,7 +266,7 @@ def tasks_dep_admin(params):
         return data
 
 
-def files_dep_auth(params, user_id):
+def tasks_dep_auth(params, user_data):
     dep_id = params.get('dep_id')
     page_size = params.get('page_size')
     page_number = params.get('page_number')
@@ -282,17 +282,27 @@ def files_dep_auth(params, user_id):
     else:
         query_dep = Department.objects.get(id=int(dep_id))
         serializer_dep = DepartmentSerializer(query_dep, many=False)
-        department = serializer_dep.data
+        department_data = serializer_dep.data
 
-        query_file = FileProduction.objects.filter(
-            tasks__department=int(dep_id),
-            tasks__users__in=[user_id],
-            tasks__end=False
-        )
-        files = paginate(page_size, page_number, dep_id, query_file)
+        if status_filter:
+            task_query = Task.objects.filter(
+                users__in=[user_data['id']],
+                users__departments__id__in=user_data['departments'],
+                department=dep_id,
+                end=False
+            ).distinct()
+        else:
+            task_query = Task.objects.filter(
+                users__in=[user_data['id']],
+                users__departments__id__in=user_data['departments'],
+                department=dep_id,
+                end=True
+            ).distinct()
+
+        tasks = paginate(page_size, page_number, task_query)
         data = {
-            'department': department,
-            'files': files
+            'department': department_data,
+            'tasks': tasks
         }
         return data
 
@@ -465,6 +475,22 @@ def comment(comment_id, users, destiny, where):
         )
 
 
+def file_delete(data, users, destiny, where):
+    message = {
+        'file': data,
+        'type': 'file_delete',
+    }
+    for user in users:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'user_file_modify_{where}_{user.id}',
+            {
+                'type': f'task_modify_{where}',
+                'message': message,
+            }
+        )
+
+
 def update_task_project_ws(data, destiny):
     """Refresh task for file and progress for project in project view"""
     users = User.objects.filter(role='Admin')
@@ -473,6 +499,9 @@ def update_task_project_ws(data, destiny):
 
     elif destiny == 'comment_add' or destiny == 'comment_delete':
         comment(data, users, destiny, 'project')
+
+    elif destiny == 'file_delete':
+        file_delete(data, users, destiny, 'project')
 
 
 def update_task_department_ws(data, destiny):
@@ -485,3 +514,6 @@ def update_task_department_ws(data, destiny):
 
     elif destiny == 'comment_add' or destiny == 'comment_delete':
         comment(data, users, destiny, 'department')
+
+    elif destiny == 'file_delete':
+        file_delete(data, users, destiny, 'department')

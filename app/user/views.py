@@ -4,6 +4,7 @@ Views for the user API
 from core.models import User
 from django.db.models import Q
 from rest_framework import generics, authentication, permissions
+from rest_framework.authentication import TokenAuthentication
 from rest_framework import (
     viewsets,
     mixins,
@@ -22,6 +23,8 @@ from user.serializers import (
 class CreateUserView(generics.CreateAPIView):
     """Create a new user in the system"""
     serializer_class = UserSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [permissions.IsAdminUser]
 
 
 class CreateTokenView(ObtainAuthToken):
